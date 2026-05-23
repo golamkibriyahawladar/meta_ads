@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>uk
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meta Ads Lead Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#3B82F6"/>
+                    <path d="M2 17L12 22L22 17" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 12L12 17L22 12" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <h1>LeadFlow Dashboard</h1>
+            </div>
+            
+            <div id="auth-section">
+                <button id="fb-login-btn" class="btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.04C6.5 2.04 2 6.53 2 12.06C2 17.06 5.66 21.21 10.44 21.96V14.96H7.9V12.06H10.44V9.85C10.44 7.34 11.93 5.96 14.22 5.96C15.31 5.96 16.45 6.15 16.45 6.15V8.62H15.19C13.95 8.62 13.56 9.39 13.56 10.18V12.06H16.34L15.89 14.96H13.56V21.96A10 10 0 0 0 22 12.06C22 6.53 17.5 2.04 12 2.04Z"/></svg>
+                    Login with Facebook
+                </button>
+                <div id="user-profile" class="hidden">
+                    <img id="user-avatar" src="" alt="Profile">
+                    <span id="user-name">User Name</span>
+                    <button id="fb-logout-btn" class="btn-secondary">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Content -->
+        <main id="dashboard-content" class="hidden">
+            
+            <!-- Summary Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Leads</h3>
+                    <p id="total-leads-count" class="stat-value">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Connected Pages</h3>
+                    <p id="connected-pages-count" class="stat-value">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Status</h3>
+                    <p class="stat-value text-success">Active</p>
+                </div>
+            </div>
+
+            <!-- Leads Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h2>Recent Leads</h2>
+                    <button id="refresh-btn" class="btn-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                        Refresh
+                    </button>
+                </div>
+                <table id="leads-table">
+                    <thead>
+                        <tr>
+                            <th>Lead ID</th>
+                            <th>Page ID</th>
+                            <th>Form ID</th>
+                            <th>Date & Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leads-body">
+                        <!-- Leads will be injected here via JS -->
+                        <tr class="empty-state">
+                            <td colspan="5">No leads found yet. Connect your page and wait for leads.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </main>
+
+        <!-- Loader -->
+        <div id="page-loader" class="loader-overlay hidden">
+            <div class="spinner"></div>
+            <p>Loading your data...</p>
+        </div>
+    </div>
+
+    <!-- Facebook SDK -->
+    <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
