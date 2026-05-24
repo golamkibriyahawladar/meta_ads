@@ -1,3 +1,5 @@
+const { getStore } = require('@netlify/blobs');
+
 exports.handler = async (event, context) => {
   const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v25.0';
 
@@ -18,6 +20,8 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    const store = getStore('meta_leads_store');
+
     // ---- Step 1: Fetch all pages managed by this user ----
     const pagesUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/me/accounts?fields=id,name,access_token&access_token=${userToken}`;
     const pagesResponse = await fetch(pagesUrl);
@@ -40,11 +44,14 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // ---- Step 2: Auto-subscribe pages to our app (Zero-Configuration Webhook Setup) ----
-    // We execute this in parallel for all pages so the client doesn't need to manually configure anything.
+    // ---- Step 2: Save Page Tokens & Auto-subscribe pages to Webhooks ----
     await Promise.all(
       pages.map(async (page) => {
         try {
+          // Save Page Access Token to Netlify Blobs for the Webhook to use later
+          await store.set(`token_${page.id}`, page.access_token);
+
+          // Auto-subscribe the page to our app's webhook
           const subUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${page.id}/subscribed_apps`;
           await fetch(subUrl, {
             method: 'POST',
@@ -54,14 +61,14 @@ exports.handler = async (event, context) => {
               access_token: page.access_token
             })
           });
-          console.log(`Successfully subscribed Page ID: ${page.id} to Lead Webhooks.`);
+          console.log(`Saved token and subscribed Page ID: ${page.id}`);
         } catch (subErr) {
-          console.error(`Failed to subscribe Page ID: ${page.id}`, subErr.message);
+          console.error(`Failed to handle Page ID: ${page.id}`, subErr.message);
         }
       })
     );
 
-    // ---- Step 3: Determine which page's leads to fetch ----
+    // ---- Step 3: Fetch leads from Netlify Blobs for the active page ----
     const activePageId = targetPageId || pages[0].id;
     const activePage = pages.find(p => p.id === activePageId);
 
@@ -73,127 +80,8 @@ exports.handler = async (event, context) => {
       };
     }
 
-    const queryFormId = queryParams.form_id;
-    let leads = [];
-    let forms = [];
-
-    if (queryFormId) {
-      // ---- Bypassing Form Listing: Fetch leads directly from the provided Form ID ----
-      try {
-        const leadsUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${queryFormId}/leads?fields=id,created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform&limit=100&access_token=${activePage.access_token}`;
-        const leadsResponse = await fetch(leadsUrl);
-        const leadsData = await leadsResponse.json();
-
-        if (leadsData.error) {
-          console.error(`Leads error for direct form ${queryFormId}:`, leadsData.error);
-          return {
-            statusCode: 400,
-            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-            body: JSON.stringify({ success: false, error: `Leads Fetch Error (Form ID ${queryFormId}): ` + leadsData.error.message })
-          };
-        }
-
-        if (leadsData.data && leadsData.data.length > 0) {
-          leads = leadsData.data.map(lead => {
-            const fields = {};
-            if (lead.field_data) {
-              lead.field_data.forEach(field => {
-                fields[field.name] = field.values[0] || '';
-              });
-            }
-            return {
-              id: lead.id,
-              created_time: lead.created_time,
-              form_id: lead.form_id || queryFormId,
-              form_name: 'Direct Form Fetch',
-              ad_name: lead.ad_name || '-',
-              campaign_name: lead.campaign_name || '-',
-              platform: lead.platform || '-',
-              is_organic: lead.is_organic || false,
-              full_name: fields.full_name || fields.first_name || '-',
-              email: fields.email || '-',
-              phone_number: fields.phone_number || '-',
-              city: fields.city || '-',
-              all_fields: fields
-            };
-          });
-        }
-      } catch (err) {
-        return {
-          statusCode: 500,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-          body: JSON.stringify({ success: false, error: 'Failed to fetch direct leads: ' + err.message })
-        };
-      }
-    } else {
-      // ---- Step 4: Fetch lead forms for the active page ----
-      const formsUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${activePage.id}/leadgen_forms?fields=id,name,status&access_token=${activePage.access_token}`;
-      const formsResponse = await fetch(formsUrl);
-      const formsData = await formsResponse.json();
-
-      if (formsData.error) {
-        console.error('Forms Fetch Error:', formsData.error);
-        return {
-          statusCode: 400,
-          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-          body: JSON.stringify({ 
-            success: false, 
-            error: 'Forms Fetch Error: ' + formsData.error.message,
-            requires_manual_form: true // Flag to tell frontend to show Form ID input
-          })
-        };
-      }
-
-      forms = formsData.data || [];
-
-      if (forms.length > 0) {
-        // ---- Step 5: Fetch leads from each form ----
-        for (const form of forms) {
-          const leadsUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${form.id}/leads?fields=id,created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform&limit=100&access_token=${activePage.access_token}`;
-          const leadsResponse = await fetch(leadsUrl);
-          const leadsData = await leadsResponse.json();
-
-          if (leadsData.error) {
-            console.error(`Leads error for form ${form.id}:`, leadsData.error);
-            return {
-              statusCode: 400,
-              headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-              body: JSON.stringify({ success: false, error: `Leads Fetch Error (Form ${form.name}): ` + leadsData.error.message })
-            };
-          }
-
-          if (leadsData.data && leadsData.data.length > 0) {
-            const parsedLeads = leadsData.data.map(lead => {
-              const fields = {};
-              if (lead.field_data) {
-                lead.field_data.forEach(field => {
-                  fields[field.name] = field.values[0] || '';
-                });
-              }
-              return {
-                id: lead.id,
-                created_time: lead.created_time,
-                form_id: lead.form_id || form.id,
-                form_name: form.name || 'Unknown Form',
-                ad_name: lead.ad_name || '-',
-                campaign_name: lead.campaign_name || '-',
-                platform: lead.platform || '-',
-                is_organic: lead.is_organic || false,
-                full_name: fields.full_name || fields.first_name || '-',
-                email: fields.email || '-',
-                phone_number: fields.phone_number || '-',
-                city: fields.city || '-',
-                all_fields: fields
-              };
-            });
-            leads = leads.concat(parsedLeads);
-          }
-        }
-      }
-    }
-
-    // Sort leads by newest first
-    leads.sort((a, b) => new Date(b.created_time) - new Date(a.created_time));
+    // Read stored leads from Blobs
+    const leads = await store.get(`leads_${activePageId}`, { type: 'json' }) || [];
 
     // Return response
     return {

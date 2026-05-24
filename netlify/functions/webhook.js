@@ -1,13 +1,13 @@
 const crypto = require('crypto');
+const { getStore } = require('@netlify/blobs');
 
 exports.handler = async (event, context) => {
-  const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'my_secret_token_123';
+  const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'token_123';
   const APP_SECRET = process.env.APP_SECRET;
-  const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
   const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v25.0';
 
   // ==========================================
-  // GET: Webhook Verification (Meta requires this)
+  // GET: Webhook Verification
   // ==========================================
   if (event.httpMethod === 'GET') {
     const queryParams = event.queryStringParameters;
@@ -27,11 +27,11 @@ exports.handler = async (event, context) => {
   }
 
   // ==========================================
-  // POST: Webhook Event Receiver (Lead comes in)
+  // POST: Webhook Event Receiver
   // ==========================================
   if (event.httpMethod === 'POST') {
     try {
-      // ---- Step 1: Validate Signature (Security) ----
+      // Validate Signature
       if (APP_SECRET) {
         const signature = event.headers['x-hub-signature-256'];
         if (signature) {
@@ -48,8 +48,8 @@ exports.handler = async (event, context) => {
       }
 
       const body = JSON.parse(event.body);
+      const store = getStore('meta_leads_store');
 
-      // ---- Step 2: Process leadgen event ----
       if (body.object === 'page') {
         for (const entry of body.entry) {
           if (!entry.changes) continue;
@@ -59,24 +59,67 @@ exports.handler = async (event, context) => {
               const leadInfo = change.value;
               console.log('New Lead Webhook Received:', JSON.stringify(leadInfo));
 
-              // ---- Step 3: Fetch FULL lead data from Graph API ----
-              if (PAGE_ACCESS_TOKEN && leadInfo.leadgen_id) {
-                try {
-                  const leadUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${leadInfo.leadgen_id}?fields=id,created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform&access_token=${PAGE_ACCESS_TOKEN}`;
+              const pageId = leadInfo.page_id;
+              const leadgenId = leadInfo.leadgen_id;
 
-                  const response = await fetch(leadUrl);
-                  const leadData = await response.json();
+              if (pageId && leadgenId) {
+                // Fetch the stored Page Access Token from Netlify Blobs
+                const pageToken = await store.get(`token_${pageId}`);
 
-                  if (leadData.error) {
-                    console.error('Graph API Error:', JSON.stringify(leadData.error));
-                  } else {
-                    console.log('Full Lead Data:', JSON.stringify(leadData));
+                if (pageToken) {
+                  try {
+                    // Fetch FULL lead details from Graph API
+                    const leadUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${leadgenId}?fields=id,created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform&access_token=${pageToken}`;
+                    const response = await fetch(leadUrl);
+                    const leadData = await response.json();
 
-                    // TODO: এখানে ডাটাবেসে সেভ করুন (Supabase / MongoDB)
-                    // Example: await supabase.from('leads').insert(leadData);
+                    if (leadData.error) {
+                      console.error('Graph API Error:', JSON.stringify(leadData.error));
+                    } else {
+                      console.log('Successfully fetched Full Lead Data:', JSON.stringify(leadData));
+
+                      // Parse fields
+                      const fields = {};
+                      if (leadData.field_data) {
+                        leadData.field_data.forEach(field => {
+                          fields[field.name] = field.values[0] || '';
+                        });
+                      }
+
+                      const parsedLead = {
+                        id: leadData.id,
+                        created_time: leadData.created_time || new Date().toISOString(),
+                        form_id: leadData.form_id || leadInfo.form_id || 'Unknown Form ID',
+                        form_name: leadData.form_name || 'Meta Lead Form',
+                        ad_name: leadData.ad_name || '-',
+                        campaign_name: leadData.campaign_name || '-',
+                        platform: leadData.platform || '-',
+                        is_organic: leadData.is_organic || false,
+                        full_name: fields.full_name || fields.first_name || '-',
+                        email: fields.email || '-',
+                        phone_number: fields.phone_number || '-',
+                        city: fields.city || '-',
+                        all_fields: fields
+                      };
+
+                      // Store to Netlify Blobs
+                      const leadsKey = `leads_${pageId}`;
+                      let existingLeads = await store.get(leadsKey, { type: 'json' }) || [];
+
+                      // Prevent duplicate leads
+                      if (!existingLeads.some(l => l.id === parsedLead.id)) {
+                        existingLeads.unshift(parsedLead);
+                        await store.setJSON(leadsKey, existingLeads);
+                        console.log(`Saved lead ${parsedLead.id} to Netlify Blobs`);
+                      } else {
+                        console.log(`Lead ${parsedLead.id} is already in the store.`);
+                      }
+                    }
+                  } catch (fetchError) {
+                    console.error('Error fetching lead details:', fetchError.message);
                   }
-                } catch (fetchError) {
-                  console.error('Error fetching lead details:', fetchError.message);
+                } else {
+                  console.error(`Page token not found in store for Page ID: ${pageId}. Log in on the dashboard first.`);
                 }
               }
             }

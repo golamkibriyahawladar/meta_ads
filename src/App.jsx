@@ -9,8 +9,6 @@ function App() {
   const [userToken, setUserToken] = useState('');
   const [error, setError] = useState(null);
   const [expandedLead, setExpandedLead] = useState(null);
-  const [showManualForm, setShowManualForm] = useState(false);
-  const [manualFormId, setManualFormId] = useState('');
 
   // Initialize Facebook SDK
   useEffect(() => {
@@ -48,15 +46,11 @@ function App() {
     }
   }, [isAuthenticated, userToken]);
 
-  const fetchPagesAndLeads = async (forceFormId = null) => {
+  const fetchPagesAndLeads = async () => {
     setLoading(true);
     setError(null);
     try {
-      const activeFormId = forceFormId || manualFormId;
-      const url = activeFormId 
-        ? `/api/leads?user_token=${userToken}&form_id=${activeFormId}`
-        : `/api/leads?user_token=${userToken}`;
-        
+      const url = `/api/leads?user_token=${userToken}`;
       const res = await fetch(url);
       const data = await res.json();
       
@@ -70,9 +64,6 @@ function App() {
           setError('No Facebook Pages found for this account.');
         }
       } else {
-        if (data.requires_manual_form) {
-          setShowManualForm(true);
-        }
         setError(data.error || 'Failed to fetch pages and leads.');
       }
     } catch (err) {
@@ -109,9 +100,7 @@ function App() {
     setSelectedPageId(pageId);
     
     setLoading(true);
-    const url = manualFormId
-      ? `/api/leads?user_token=${userToken}&page_id=${pageId}&form_id=${manualFormId}`
-      : `/api/leads?user_token=${userToken}&page_id=${pageId}`;
+    const url = `/api/leads?user_token=${userToken}&page_id=${pageId}`;
 
     fetch(url)
       .then(res => res.json())
@@ -119,9 +108,6 @@ function App() {
         if (data.success) {
           setLeads(data.leads || []);
         } else {
-          if (data.requires_manual_form) {
-            setShowManualForm(true);
-          }
           setError(data.error || 'Failed to fetch leads for this page.');
         }
       })
@@ -245,50 +231,10 @@ function App() {
           </div>
         )}
 
-        {showManualForm && (
-          <div className="glass-card manual-form-card" style={{ marginBottom: '24px', padding: '20px' }}>
-            <h3 style={{ marginBottom: '8px', fontSize: '1.1rem', fontWeight: 600 }}>Enter Lead Form ID Manually</h3>
-            <p style={{ fontSize: '0.9rem', opacity: 0.8, marginBottom: '16px' }}>
-              Facebook permissions blocked automatic discovery of forms. Please enter your Meta Lead Form ID to pull leads directly:
-            </p>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <input 
-                type="text" 
-                placeholder="Enter Form ID (e.g. 2395741910933472)" 
-                value={manualFormId} 
-                onChange={(e) => setManualFormId(e.target.value)}
-                style={{ 
-                  flex: 1, 
-                  background: 'rgba(255, 255, 255, 0.05)', 
-                  border: '1px solid rgba(255, 255, 255, 0.1)', 
-                  borderRadius: '8px', 
-                  padding: '10px 14px', 
-                  color: 'white',
-                  fontSize: '0.95rem'
-                }} 
-              />
-              <button 
-                onClick={() => fetchPagesAndLeads(manualFormId)}
-                style={{ 
-                  background: 'linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)', 
-                  border: 'none', 
-                  borderRadius: '8px', 
-                  padding: '10px 20px', 
-                  color: 'white', 
-                  fontWeight: 600, 
-                  cursor: 'pointer' 
-                }}
-              >
-                Fetch Leads
-              </button>
-            </div>
-          </div>
-        )}
-
         <div className="glass-card table-container">
           <div className="table-header">
             <h2>Recent Leads</h2>
-            <button className="refresh-btn" onClick={fetchPagesAndLeads} disabled={loading}>
+            <button className="refresh-btn" onClick={() => fetchPagesAndLeads()} disabled={loading}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={loading ? 'spin' : ''}>
                 <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
