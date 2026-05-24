@@ -1,48 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Payload Viewer & Deleter</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="index.css" />
-</head>
-<body>
-  <main class="container">
-    <h1 class="title">Payload Viewer</h1>
-    <div class="payload-box" id="payloadBox">
-      <!-- Raw payload will appear here -->
-    </div>
-    <div class="controls">
-      <textarea class="input-area" id="inputArea" placeholder="Paste raw data here..." rows="5"></textarea>
-      <button class="btn" id="addBtn">Add Payload</button>
-      <button class="btn btn-danger" id="deleteBtn">Delete Payload</button>
-    </div>
-  </main>
-
-  <script>
-    const payloadBox = document.getElementById('payloadBox');
-    const inputArea = document.getElementById('inputArea');
-    const addBtn = document.getElementById('addBtn');
-    const deleteBtn = document.getElementById('deleteBtn');
-
-    // Append raw text preserving line‑breaks
-    addBtn.addEventListener('click', () => {
-      const text = inputArea.value.trim();
-      if (text) {
-        const pre = document.createElement('pre');
-        pre.textContent = text;
-        payloadBox.appendChild(pre);
-        inputArea.value = '';
-      }
-    });
-
-    // Clear all payloads
-    deleteBtn.addEventListener('click', () => {
-      payloadBox.innerHTML = '';
-    });
-  </script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meta Ads Lead Dashboard</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
