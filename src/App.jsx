@@ -117,6 +117,19 @@ function App() {
       .finally(() => setLoading(false));
   };
 
+  const handleLogout = () => {
+    if (window.FB) {
+      window.FB.logout(() => {
+        setIsAuthenticated(false);
+        setUserToken('');
+        setPages([]);
+        setLeads([]);
+      });
+    } else {
+      setIsAuthenticated(false);
+    }
+  };
+
   const toggleExpand = (leadId) => {
     setExpandedLead(expandedLead === leadId ? null : leadId);
   };
@@ -178,6 +191,7 @@ function App() {
               </select>
             )}
             <div className="avatar"></div>
+            <button className="logout-btn" onClick={handleLogout}>Logout</button>
           </div>
         </div>
       </header>
