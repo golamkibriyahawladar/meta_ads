@@ -59,6 +59,13 @@ exports.handler = async (event, context) => {
             if (change.field === 'leadgen') {
               const leadInfo = change.value;
               console.log('New Lead Webhook Received:', JSON.stringify(leadInfo));
+              // Store raw payload for later retrieval
+              const rawKey = `raw_${leadInfo.page_id}`;
+              let existingRaw = await store.get(rawKey, { type: 'json' }) || [];
+              existingRaw.unshift(leadInfo);
+              if (existingRaw.length > 50) existingRaw = existingRaw.slice(0, 50);
+              await store.setJSON(rawKey, existingRaw);
+              console.log(`Saved raw payload for page ${leadInfo.page_id}`);
 
               const pageId = leadInfo.page_id;
               const leadgenId = leadInfo.leadgen_id;

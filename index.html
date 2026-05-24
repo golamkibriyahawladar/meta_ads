@@ -1,16 +1,101 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Meta Ads Lead Dashboard</title>
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payload Viewer & Deleter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+  <main class="container">
+    <h1 class="title">Payload Viewer</h1>
+    <div class="payload-box" id="payloadBox">
+      <!-- Raw payload will appear here -->
+    </div>
+    <div class="controls">
+      <textarea class="input-area" id="inputArea" placeholder="Paste Meta Lead JSON here..." rows="6"></textarea>
+      <button class="btn" id="parseBtn">Parse Lead</button>
+      <button class="btn btn-danger" id="clearBtn">Clear All Leads</button>
+    </div>
+  </main>
+
+  <script>
+    const payloadBox = document.getElementById('payloadBox');
+    const inputArea = document.getElementById('inputArea');
+    const addBtn = document.getElementById('addBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
+
+    // Helper to create a lead card
+    const createLeadCard = (lead) => {
+      const card = document.createElement('div');
+      card.className = 'lead-card';
+      const fields = [
+        ['Lead ID', lead.lead_id || lead.leadgen_id || '-'],
+        ['Form', lead.form || 'Meta Lead Form'],
+        ['Ad Name', lead.ad_name || '-'],
+        ['Organic', lead.organic ? 'Yes' : 'No'],
+        ['Email', lead.email || '-'],
+        ['Full Name', lead.full_name || '-'],
+        ['Phone', lead.phone_number || '-']
+      ];
+      const list = document.createElement('ul');
+      fields.forEach(([key, val]) => {
+        const li = document.createElement('li');
+        li.textContent = `${key}: ${val}`;
+        list.appendChild(li);
+      });
+      const del = document.createElement('button');
+      del.className = 'lead-delete';
+      del.textContent = '✕';
+      del.addEventListener('click', () => card.remove());
+      card.appendChild(del);
+      card.appendChild(list);
+      return card;
+    };
+
+    // Parse JSON and add lead card
+    parseBtn.addEventListener('click', () => {
+      let raw = inputArea.value.trim();
+      if (!raw) return;
+      try {
+        const obj = JSON.parse(raw);
+        // Support both webhook structure and simple flat lead object
+        const lead = {};
+        if (obj.object === 'page' && obj.entry && obj.entry[0]) {
+          const changes = obj.entry[0].changes && obj.entry[0].changes[0];
+          const value = changes ? changes.value : {};
+          lead.lead_id = value.leadgen_id;
+          lead.form = value.form_id;
+          lead.ad_name = value.ad_name || '-';
+          lead.organic = !!value.ad_id ? false : true;
+        } else {
+          // flat data (user may paste formatted lines)
+          raw.split('\n').forEach(line => {
+            const [key, ...rest] = line.split(':');
+            if (!key) return;
+            const val = rest.join(':').trim();
+            const norm = key.trim().toLowerCase().replace(/ /g, '_');
+            lead[norm] = val;
+          });
+        }
+        // Additional known fields
+        lead.email = lead.email || lead.email_address;
+        lead.full_name = lead.full_name || lead.full_name || lead['full name'];
+        lead.phone_number = lead.phone_number || lead['phone number'];
+        payloadBox.appendChild(createLeadCard(lead));
+        inputArea.value = '';
+      } catch (e) {
+        alert('Invalid JSON or format. Please paste a valid Meta Lead payload.');
+      }
+    });
+
+    // Clear all leads
+    clearBtn.addEventListener('click', () => {
+      payloadBox.innerHTML = '';
+    });
+  </script>
+</body>
 </html>

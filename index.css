@@ -1,0 +1,98 @@
+/* Premium Glassmorphic Styling */
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #0d0d2b, #1a1a40);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f0f0f0;
+}
+
+.container {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 90%;
+  max-width: 800px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.title {
+  text-align: center;
+  font-size: 2.2rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  color: #e0e0ff;
+}
+
+.payload-box {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 1rem;
+  min-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  font-family: monospace;
+  color: #e6e6ff;
+}
+
+.payload-box pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.input-area {
+  width: 100%;
+  border-radius: 8px;
+  border: none;
+  padding: 0.8rem;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  resize: vertical;
+  backdrop-filter: blur(6px);
+  font-family: 'Inter', sans-serif;
+}
+
+.input-area::placeholder {
+  color: #c0c0ff;
+}
+
+.btn {
+  cursor: pointer;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: transform 0.15s ease, background 0.2s ease;
+  background: rgba(255, 255, 255, 0.25);
+  color: #1a1a40;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.btn-danger {
+  background: rgba(255, 80, 80, 0.3);
+  color: #1a1a40;
+}
+
+.btn-danger:hover {
+  background: rgba(255, 80, 80, 0.45);
+}
+
+@media (max-width: 600px) {
+  .title {font-size: 1.8rem;}
+  .container {padding: 1.5rem;}
+}

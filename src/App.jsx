@@ -9,6 +9,8 @@ function App() {
   const [userToken, setUserToken] = useState('');
   const [error, setError] = useState(null);
   const [expandedLead, setExpandedLead] = useState(null);
+  const [activeTab, setActiveTab] = useState('leads');
+  const [rawPayloads, setRawPayloads] = useState([]);
 
   // Initialize Facebook SDK
   useEffect(() => {
@@ -69,6 +71,27 @@ function App() {
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Network error. Could not load data.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New: Fetch raw webhook payloads for the selected page
+  const fetchRawPayload = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = `/api/raw?user_token=${userToken}&page_id=${selectedPageId}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.success) {
+        setRawPayloads(data.raw || []);
+      } else {
+        setError(data.error || 'Failed to fetch raw payload data.');
+      }
+    } catch (err) {
+      console.error('Error fetching raw payload:', err);
+      setError('Network error while fetching raw payload.');
     } finally {
       setLoading(false);
     }
@@ -198,7 +221,19 @@ function App() {
       </header>
 
       <main className="main-content">
-        {/* Stats Cards */}
+        {error && (
+          <div className="glass-card error-card">
+            <p>⚠️ {error}</p>
+          </div>
+        )}
+        
+        {/* Tab Selector */}
+        <div className="tab-selector" style={{display: 'flex', gap: '8px', marginBottom: '16px'}}>
+          <button className={activeTab === 'leads' ? 'active' : ''} onClick={() => { setActiveTab('leads'); fetchPagesAndLeads(); }}>Leads</button>
+          <button className={activeTab === 'payload' ? 'active' : ''} onClick={() => { setActiveTab('payload'); fetchRawPayload(); }}>Payload</button>
+        </div>
+
+        {/* Stats Cards stay above */}
         <div className="dashboard-stats">
           <div className="glass-card stat-card">
             <div className="stat-icon stat-icon-total">
@@ -212,9 +247,7 @@ function App() {
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             </div>
             <h3>New Today</h3>
-            <p className="stat-number">
-              {leads.filter(l => new Date(l.created_time).toDateString() === new Date().toDateString()).length}
-            </p>
+            <p className="stat-number">{leads.filter(l => new Date(l.created_time).toDateString() === new Date().toDateString()).length}</p>
           </div>
           <div className="glass-card stat-card">
             <div className="stat-icon stat-icon-forms">
@@ -225,90 +258,95 @@ function App() {
           </div>
         </div>
 
-        {error && (
-          <div className="glass-card error-card">
-            <p>⚠️ {error}</p>
+        {/* Conditional Content */}
+        {activeTab === 'leads' && (
+          <div className="glass-card table-container">
+            <div className="table-header">
+              <h2>Recent Leads</h2>
+              <button className="refresh-btn" onClick={() => fetchPagesAndLeads()} disabled={loading}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={loading ? 'spin' : ''}>
+                  <polyline points="23 4 23 10 17 10"/>
+                  <polyline points="1 20 1 14 7 14"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                </svg>
+                {loading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+            {loading ? (
+              <div className="loader-container"><div className="spinner"/></div>
+            ) : leads.length === 0 ? (
+              <div className="empty-state">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <p>No leads found for this page.</p>
+              </div>
+            ) : (
+              <div className="table-wrapper">
+                <table className="leads-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>City</th>
+                      <th>Campaign</th>
+                      <th>Platform</th>
+                      <th>Date</th>
+                      <th>Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leads.map((lead) => (
+                      <React.Fragment key={lead.id}>
+                        <tr className={expandedLead === lead.id ? 'row-expanded' : ''}>
+                          <td className="td-name">{lead.full_name}</td>
+                          <td className="td-email">{lead.email}</td>
+                          <td className="td-phone">{lead.phone_number}</td>
+                          <td>{lead.city}</td>
+                          <td><span className="campaign-badge">{lead.campaign_name}</span></td>
+                          <td><span className="platform-badge">{lead.platform}</span></td>
+                          <td>{new Date(lead.created_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                          <td><button className="expand-btn" onClick={() => toggleExpand(lead.id)}>{expandedLead === lead.id ? '▲' : '▼'}</button></td>
+                        </tr>
+                        {expandedLead === lead.id && (
+                          <tr className="expanded-row">
+                            <td colSpan="8">
+                              <div className="expanded-content">
+                                <div className="detail-grid">
+                                  <div className="detail-item"><span className="detail-label">Lead ID</span><span className="detail-value">{lead.id}</span></div>
+                                  <div className="detail-item"><span className="detail-label">Form</span><span className="detail-value">{lead.form_name}</span></div>
+                                  <div className="detail-item"><span className="detail-label">Ad Name</span><span className="detail-value">{lead.ad_name}</span></div>
+                                  <div className="detail-item"><span className="detail-label">Organic</span><span className="detail-value">{lead.is_organic ? 'Yes' : 'No'}</span></div>
+                                  {lead.all_fields && Object.entries(lead.all_fields).map(([key, value]) => (
+                                    <div className="detail-item" key={key}>
+                                      <span className="detail-label">{key.replace(/_/g, ' ')}</span>
+                                      <span className="detail-value">{value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="glass-card table-container">
-          <div className="table-header">
-            <h2>Recent Leads</h2>
-            <button className="refresh-btn" onClick={() => fetchPagesAndLeads()} disabled={loading}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={loading ? 'spin' : ''}>
-                <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-              </svg>
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
+        {activeTab === 'payload' && (
+          <div className="glass-card payload-container" style={{padding: '16px'}}>
+            {loading ? (
+              <div className="loader-container"><div className="spinner"/></div>
+            ) : rawPayloads.length === 0 ? (
+              <div className="empty-state"><p>No payload data available.</p></div>
+            ) : (
+              <pre style={{whiteSpace: 'pre-wrap', wordBreak: 'break-all'}}>{JSON.stringify(rawPayloads, null, 2)}</pre>
+            )}
           </div>
-
-          {loading ? (
-            <div className="loader-container"><div className="spinner"></div></div>
-          ) : leads.length === 0 ? (
-            <div className="empty-state">
-              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <p>No leads found for this page.</p>
-            </div>
-          ) : (
-            <div className="table-wrapper">
-              <table className="leads-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>City</th>
-                    <th>Campaign</th>
-                    <th>Platform</th>
-                    <th>Date</th>
-                    <th>Details</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {leads.map((lead) => (
-                    <React.Fragment key={lead.id}>
-                      <tr className={expandedLead === lead.id ? 'row-expanded' : ''}>
-                        <td className="td-name">{lead.full_name}</td>
-                        <td className="td-email">{lead.email}</td>
-                        <td className="td-phone">{lead.phone_number}</td>
-                        <td>{lead.city}</td>
-                        <td><span className="campaign-badge">{lead.campaign_name}</span></td>
-                        <td><span className="platform-badge">{lead.platform}</span></td>
-                        <td>{new Date(lead.created_time).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                        <td>
-                          <button className="expand-btn" onClick={() => toggleExpand(lead.id)}>
-                            {expandedLead === lead.id ? '▲' : '▼'}
-                          </button>
-                        </td>
-                      </tr>
-                      {expandedLead === lead.id && (
-                        <tr className="expanded-row">
-                          <td colSpan="8">
-                            <div className="expanded-content">
-                              <div className="detail-grid">
-                                <div className="detail-item"><span className="detail-label">Lead ID</span><span className="detail-value">{lead.id}</span></div>
-                                <div className="detail-item"><span className="detail-label">Form</span><span className="detail-value">{lead.form_name}</span></div>
-                                <div className="detail-item"><span className="detail-label">Ad Name</span><span className="detail-value">{lead.ad_name}</span></div>
-                                <div className="detail-item"><span className="detail-label">Organic</span><span className="detail-value">{lead.is_organic ? 'Yes' : 'No'}</span></div>
-                                {lead.all_fields && Object.entries(lead.all_fields).map(([key, value]) => (
-                                  <div className="detail-item" key={key}>
-                                    <span className="detail-label">{key.replace(/_/g, ' ')}</span>
-                                    <span className="detail-value">{value}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        )}
       </main>
     </div>
   );
