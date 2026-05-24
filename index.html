@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Payload & Lead Dashboard</title>
+  <title>Payload Viewer & Deleter</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
@@ -11,143 +11,37 @@
 </head>
 <body>
   <main class="container">
-    <h1 class="title">Payload & Lead Dashboard</h1>
-
-    <!-- Tab navigation -->
-    <div class="tabs">
-      <button class="tab-btn active" onclick="showTab('rawTab', this)">Raw Payload</button>
-      <button class="tab-btn" onclick="showTab('leadTab', this)">Lead Dashboard</button>
-      <button class="tab-btn" onclick="showTab('raw', this)">Raw Payload</button>
+    <h1 class="title">Payload Viewer</h1>
+    <div class="payload-box" id="payloadBox">
+      <!-- Raw payload will appear here -->
     </div>
-
-    <!-- Raw payload tab -->
-    <div id="rawTab" class="tab-content">
-      <div class="payload-box" id="rawBox">
-        <!-- Raw payload will appear here -->
-      </div>
-      <div class="controls">
-        <textarea class="input-area" id="rawInput" placeholder="Paste raw data here..." rows="5"></textarea>
-        <button class="btn" id="addRawBtn">Add Payload</button>
-        <button class="btn btn-danger" id="clearRawBtn">Delete Payload</button>
-      </div>
-    </div>
-
-    <!-- Lead dashboard tab -->
-    <div id="leadTab" class="tab-content" style="display:none;">
-      <div class="payload-box" id="leadBox">
-        <!-- Lead cards will appear here -->
-      </div>
-      <div class="controls">
-        <textarea class="input-area" id="leadInput" placeholder="Paste Meta Lead JSON here..." rows="6"></textarea>
-        <button class="btn" id="parseBtn">Parse Lead</button>
-        <button class="btn btn-danger" id="clearLeadBtn">Clear All Leads</button>
-      </div>
-    </div>
-
-    <div id="raw" class="tab-content" style="display:none;">
-      <pre id="rawPayload" class="payload-box"></pre>
+    <div class="controls">
+      <textarea class="input-area" id="inputArea" placeholder="Paste raw data here..." rows="5"></textarea>
+      <button class="btn" id="addBtn">Add Payload</button>
+      <button class="btn btn-danger" id="deleteBtn">Delete Payload</button>
     </div>
   </main>
 
   <script>
-    // Tab switching
-    function showTab(tabId, btn) {
-      document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(tabId).style.display = 'block';
-      btn.classList.add('active');
-    }
+    const payloadBox = document.getElementById('payloadBox');
+    const inputArea = document.getElementById('inputArea');
+    const addBtn = document.getElementById('addBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
 
-    // ---------- Raw payload handling ----------
-    const rawBox = document.getElementById('rawBox');
-    const rawInput = document.getElementById('rawInput');
-    const addRawBtn = document.getElementById('addRawBtn');
-    const clearRawBtn = document.getElementById('clearRawBtn');
-    const rawPayload = document.getElementById('rawPayload');
-
-    addRawBtn.addEventListener('click', () => {
-      const txt = rawInput.value.trim();
-      if (!txt) return;
-      const pre = document.createElement('pre');
-      pre.textContent = txt;
-      rawBox.appendChild(pre);
-      rawInput.value = '';
-    });
-
-    clearRawBtn.addEventListener('click', () => {
-      rawBox.innerHTML = '';
-    });
-
-    // ---------- Lead dashboard handling ----------
-    const leadBox = document.getElementById('leadBox');
-    const leadInput = document.getElementById('leadInput');
-    const parseBtn = document.getElementById('parseBtn');
-    const clearLeadBtn = document.getElementById('clearLeadBtn');
-
-    const createLeadCard = (lead) => {
-      const card = document.createElement('div');
-      card.className = 'lead-card';
-      const fields = [
-        ['Lead ID', lead.lead_id || lead.leadgen_id || '-'],
-        ['Form', lead.form || 'Meta Lead Form'],
-        ['Ad Name', lead.ad_name || '-'],
-        ['Organic', lead.organic ? 'Yes' : 'No'],
-        ['Email', lead.email || '-'],
-        ['Full Name', lead.full_name || '-'],
-        ['Phone', lead.phone_number || '-']
-      ];
-      const ul = document.createElement('ul');
-      fields.forEach(([k, v]) => {
-        const li = document.createElement('li');
-        li.textContent = `${k}: ${v}`;
-        ul.appendChild(li);
-      });
-      const delBtn = document.createElement('button');
-      delBtn.className = 'lead-delete';
-      delBtn.textContent = 'Delete';
-      delBtn.addEventListener('click', () => card.remove());
-      card.appendChild(delBtn);
-      card.appendChild(ul);
-      return card;
-    };
-
-    parseBtn.addEventListener('click', () => {
-      const raw = leadInput.value.trim();
-      if (!raw) return;
-      try {
-        rawPayload.textContent = raw;
-        const obj = JSON.parse(raw);
-        const lead = {};
-        if (obj.object === 'page' && obj.entry && obj.entry[0]) {
-          const changes = obj.entry[0].changes && obj.entry[0].changes[0];
-          const value = changes ? changes.value : {};
-          lead.lead_id = value.leadgen_id;
-          lead.form = value.form_id;
-          lead.ad_name = value.ad_name || '-';
-          lead.organic = !!value.ad_id ? false : true;
-        } else {
-          // Simple key:value lines (fallback)
-          raw.split('\n').forEach(line => {
-            const [key, ...rest] = line.split(':');
-            if (!key) return;
-            const val = rest.join(':').trim();
-            const norm = key.trim().toLowerCase().replace(/ /g, '_');
-            lead[norm] = val;
-          });
-        }
-        // Normalise possible field names
-        lead.email = lead.email || lead.email_address || '-';
-        lead.full_name = lead.full_name || lead.full_name || lead['full name'] || '-';
-        lead.phone_number = lead.phone_number || lead['phone number'] || '-';
-        leadBox.appendChild(createLeadCard(lead));
-        leadInput.value = '';
-      } catch (e) {
-        alert('Invalid JSON or format. Please paste a valid Meta Lead payload.');
+    // Append raw text preserving line‑breaks
+    addBtn.addEventListener('click', () => {
+      const text = inputArea.value.trim();
+      if (text) {
+        const pre = document.createElement('pre');
+        pre.textContent = text;
+        payloadBox.appendChild(pre);
+        inputArea.value = '';
       }
     });
 
-    clearLeadBtn.addEventListener('click', () => {
-      leadBox.innerHTML = '';
+    // Clear all payloads
+    deleteBtn.addEventListener('click', () => {
+      payloadBox.innerHTML = '';
     });
   </script>
 </body>
