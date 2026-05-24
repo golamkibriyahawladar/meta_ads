@@ -1,6 +1,7 @@
-const { getStore } = require('@netlify/blobs');
+const { getStore, connectLambda } = require('@netlify/blobs');
 
 exports.handler = async (event, context) => {
+  connectLambda(event);
   const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v25.0';
 
   if (event.httpMethod !== 'GET') {

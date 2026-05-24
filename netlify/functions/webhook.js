@@ -1,7 +1,8 @@
 const crypto = require('crypto');
-const { getStore } = require('@netlify/blobs');
+const { getStore, connectLambda } = require('@netlify/blobs');
 
 exports.handler = async (event, context) => {
+  connectLambda(event);
   const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'token_123';
   const APP_SECRET = process.env.APP_SECRET;
   const GRAPH_API_VERSION = process.env.GRAPH_API_VERSION || 'v25.0';
