@@ -80,12 +80,31 @@ exports.handler = async (event, context) => {
 
     let leads = [];
 
+    if (formsData.error) {
+      console.error('Forms Fetch Error:', formsData.error);
+      return {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({ success: false, error: 'Forms Fetch Error: ' + formsData.error.message })
+      };
+    }
+
     if (formsData.data && formsData.data.length > 0) {
       // ---- Step 5: Fetch leads from each form ----
       for (const form of formsData.data) {
         const leadsUrl = `https://graph.facebook.com/${GRAPH_API_VERSION}/${form.id}/leads?fields=id,created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform&limit=100&access_token=${activePage.access_token}`;
         const leadsResponse = await fetch(leadsUrl);
         const leadsData = await leadsResponse.json();
+
+        if (leadsData.error) {
+          console.error(`Leads error for form ${form.id}:`, leadsData.error);
+          // If there is an error (e.g. missing leads_retrieval permission or Lead Access), we want to return it to UI
+          return {
+            statusCode: 400,
+            headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({ success: false, error: `Leads Fetch Error (Form ${form.name}): ` + leadsData.error.message })
+          };
+        }
 
         if (leadsData.data && leadsData.data.length > 0) {
           const parsedLeads = leadsData.data.map(lead => {
