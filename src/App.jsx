@@ -83,14 +83,16 @@ function App() {
     
     window.FB.login((response) => {
       if (response.authResponse) {
+        const token = response.authResponse.accessToken;
+        setUserToken(token);
         setIsAuthenticated(true);
-        setUserToken(response.authResponse.accessToken);
+        fetchPagesAndLeads();
       } else {
-        setError('User cancelled login or did not fully authorize the app.');
+        setError('Login failed or was cancelled.');
+        setLoading(false);
       }
-    }, {
-      // Request required permissions for Lead Ads retrieval and subscription
-      scope: 'pages_read_engagement,pages_show_list,pages_manage_metadata,leads_retrieval'
+    }, { 
+      scope: 'pages_read_engagement,pages_show_list,pages_manage_metadata,leads_retrieval,pages_manage_ads' 
     });
   };
 
