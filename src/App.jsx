@@ -228,9 +228,10 @@ function App() {
         )}
         
         {/* Tab Selector */}
-        <div className="tab-selector" style={{display: 'flex', gap: '8px', marginBottom: '16px'}}>
+        <div className="tab-selector">
           <button className={activeTab === 'leads' ? 'active' : ''} onClick={() => { setActiveTab('leads'); fetchPagesAndLeads(); }}>Leads</button>
           <button className={activeTab === 'payload' ? 'active' : ''} onClick={() => { setActiveTab('payload'); fetchRawPayload(); }}>Payload</button>
+          <button className={activeTab === 'webhook' ? 'active' : ''} onClick={() => setActiveTab('webhook')}>Webhook</button>
         </div>
 
         {/* Stats Cards stay above */}
@@ -344,6 +345,42 @@ function App() {
               <div className="empty-state"><p>No payload data available.</p></div>
             ) : (
               <pre style={{whiteSpace: 'pre-wrap', wordBreak: 'break-all'}}>{JSON.stringify(rawPayloads, null, 2)}</pre>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'webhook' && (
+          <div className="glass-card webhook-container">
+            <div className="table-header">
+              <h2>Webhook Payloads</h2>
+              <button className="refresh-btn" onClick={() => setRawPayloads([])}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+                </svg>
+                Clear All
+              </button>
+            </div>
+            {rawPayloads.length === 0 ? (
+              <div className="empty-state">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3">
+                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                  <polyline points="13 2 13 9 20 9"/>
+                </svg>
+                <p>Waiting for webhook payloads...</p>
+                <p style={{fontSize: '0.8rem', marginTop: '6px', opacity: 0.6}}>Payloads will appear here as they arrive</p>
+              </div>
+            ) : (
+              <div className="webhook-list">
+                {rawPayloads.map((payload, idx) => (
+                  <div className="webhook-item" key={idx}>
+                    <div className="webhook-item-header">
+                      <span className="webhook-badge">#{rawPayloads.length - idx}</span>
+                      <span className="webhook-time">{payload.received_at ? new Date(payload.received_at).toLocaleString() : 'Unknown time'}</span>
+                    </div>
+                    <pre className="webhook-pre">{typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)}</pre>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
